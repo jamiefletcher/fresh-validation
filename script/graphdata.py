@@ -25,8 +25,10 @@ Retrieves 24 hours of meteorological data for Toronto Pearson Airport
 A single JSON file containing both datasets is produced, which feeds the
 graphs on the SENES weather model validation website."""
 
-# Version:    1.2.1
+# Version:    1.2.2
 # Change Log:
+# 28Feb2015 * Added functionality for parsing total precip csv files
+# 21Feb2015 * Added error handling for output files to main()
 # 04Feb2015 * Refactored csv parsing to be part of 'MetStation' class
 # 03Feb2015 * Converted csv file lists to be part of a new object class
 #             called 'MetStation'
@@ -38,7 +40,6 @@ from datetime import datetime
 #from pytz import timezone
 
 class MetStation(object):
-
     def __init__(self, name, hourly_obs_file, hourly_fcst_file,
                  hourly_obs_precip_file, hourly_fcst_precip_file,
                  daily_obs_precip_file, daily_fcst_precip_file):
@@ -49,6 +50,9 @@ class MetStation(object):
         self.daily_precip_files = '', daily_obs_precip_file, daily_fcst_precip_file
 
     def __str__(self):
+        return self.name
+
+    def get_name(self):
         return self.name
 
     def read_hourly_data(self):
@@ -106,8 +110,8 @@ class MetStation(object):
             raise ValueError('Mismatch in precipitation types.')
 
         precip_type = 'Precipitation Type', \
-                      ['' for i in rain[obs]], \
-                      ['' for i in rain[forecast]]
+                      ['--' for i in rain[obs]], \
+                      ['--' for i in rain[forecast]]
 
         for i in (obs, forecast):
             n_elements = len(precip_type[i])
@@ -121,65 +125,25 @@ class MetStation(object):
 
         return rain, snow, precip_type
 
-    def get_name(self):
-        return self.name
+    def read_daily_precip_total(self):
+        # Define data element IDs
+        obs, forecast = 1, 2
 
+        total_precip = 'Total Precipitation (mm)', [],[]
 
-def main():
-    # For testing
-    #file_path = '/path/to/testing/'
-    #file_date = '07022015'
+        for i in (obs, forecast):
+            n_line = 0
+            with open(self.daily_precip_files[i]) as data_file:
+                for row in data_file:
+                    if n_line > 0:
+                        column = row.split()
+                        if i == obs:
+                            total_precip[i].append(round(float(column[5]),2))
+                        elif i == forecast:
+                            total_precip[i].append(round(float(column[3]),2))
+                    n_line += 1
 
-    # Observations data are available 1 day after they are recorded
-    file_date = datetime.fromordinal(
-                datetime.now().toordinal() -1
-                ).strftime('%d%m%Y')
-    file_path = '/path/to/production/'
-
-    # Define meteorological stations
-    stations = []
-
-    stn_toronto_pearson = MetStation('Toronto_Pearson',
-        file_path + 'observations/hourly/archive/PA.obs.' + file_date,
-        file_path + 'grads/archive/PA.fcst.' + file_date,
-        file_path + 'observations/hourly/archive/PA.prec.obs.' + file_date + '.table',
-        file_path + 'grads/archive/PA.precip.fcst.' + file_date + '.table',
-        file_path + 'observations/daily/archive/PA.prec.dlyobs.' + file_date,
-        file_path + 'grads/archive/PA.dlyprec.fcst.' + file_date
-    )
-    stations.append(stn_toronto_pearson)
-
-    for s in stations:
-        try:
-            date, air_temp, rel_hum, wind_speed, stn_press, wind_freq = \
-                s.read_hourly_data()
-            rain, snow, precip_type = s.read_hourly_precip_type()
-        except Exception as e:
-            print e
-            return 1
-
-        stn_data = []
-        stn_data.append(air_temp)
-        stn_data.append(rel_hum)
-        stn_data.append(wind_speed)
-        stn_data.append(stn_press)
-        stn_data.append(wind_freq)
-        stn_data.append(rain)
-        stn_data.append(snow)
-        stn_data.append(precip_type)
-
-        # Dump paired obs/forecast data to a JSON file
-        with open(file_path + 'script/' + s.get_name() + '.json', 'w') as outfile:
-            json.dump((date, stn_data),
-                      outfile,
-            #          sort_keys = True,
-            #          indent = 2,
-            #          ensure_ascii = False
-            )
-
-    print datetime.now().strftime('%d-%b-%Y %H:%M:%S %Z'),
-    print 'All files updated successfully.'
-    return 0
+        return total_precip
 
 def get_wind_frequency(directions):
     """Return the frequency distribution among the 16 wind sectors.
@@ -188,9 +152,6 @@ def get_wind_frequency(directions):
       directions (list): wind directions    >=0 AND <=360 degrees
 
     Returns:
-      sectors    (list): ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE',
-                          'SSE', 'S', 'SSW','SW', 'WSW', 'W', 'WNW',
-                          'NW', 'NNW']
       wind_freq  (list): frequency distribution (as %) among the
                          16 wind sectors
     """
@@ -282,6 +243,68 @@ def unix_date_stamp(yyyy, mm, dd, hh=0, tz='UTC'):
 
     ds = dt.toordinal()*24 + hh - epoch.toordinal()*24
     return ds * 3600 * 1000
+
+def main(testing = False):
+    if testing:
+        file_path = '/path/to/testing/'
+        file_date = '18022015'
+    else:
+        # Observations data are available 1 day after they are recorded
+        file_date = datetime.fromordinal(
+                    datetime.now().toordinal() - 1
+                    ).strftime('%d%m%Y')
+        file_path = '/path/to/production/'
+
+    # Define meteorological stations
+    stations = []
+
+    stn_toronto_pearson = MetStation('Toronto_Pearson',
+        file_path + 'observations/hourly/archive/PA.obs.' + file_date,
+        file_path + 'grads/archive/PA.fcst.' + file_date,
+        file_path + 'observations/hourly/archive/PA.prec.obs.' + file_date + '.table',
+        file_path + 'grads/archive/PA.precip.fcst.' + file_date + '.table',
+        file_path + 'observations/daily/archive/PA.prec.dlyobs.' + file_date,
+        file_path + 'grads/archive/PA.dlyprec.fcst.' + file_date
+    )
+    stations.append(stn_toronto_pearson)
+
+    # Populate station data from csv files and write to JSON
+    for s in stations:
+        try:
+            date, air_temp, rel_hum, wind_speed, stn_press, wind_freq = \
+                s.read_hourly_data()
+            rain, snow, precip_type = s.read_hourly_precip_type()
+            total_precip = s.read_daily_precip_total()
+        except Exception as e:
+            print 'Error reading data files.', e
+            return 1
+
+        stn_data = []
+        stn_data.append(air_temp)
+        stn_data.append(rel_hum)
+        stn_data.append(wind_speed)
+        stn_data.append(stn_press)
+        stn_data.append(wind_freq)
+        stn_data.append(rain)
+        stn_data.append(snow)
+        stn_data.append(precip_type)
+        stn_data.append(total_precip)
+
+        # Dump paired obs/forecast data to a JSON file
+        try:
+            with open(file_path + 'script/' + s.get_name() + '.json', 'w') as outfile:
+                json.dump((date, stn_data),
+                          outfile,
+                #          sort_keys = True,
+                #          indent = 2,
+                #          ensure_ascii = False
+                )
+            print datetime.now().strftime('%d-%b-%Y %H:%M:%S %Z'),
+            print s.get_name() + '.json updated successfully.'
+        except Exception as e:
+            print 'Error writing JSON file.', e
+            return 1
+    return 0
 
 if __name__ == '__main__':
     main()
