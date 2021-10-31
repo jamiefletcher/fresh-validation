@@ -1,0 +1,267 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.01//EN" "http://www.w3.org/TR/html4/strict.dtd">
+<html>
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    <title>FReSH Validation - Toronto International Airport (YYZ)</title>
+
+    <style type="text/css">
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #fafafa;
+            font-family: Palatino, "Palatino LT STD", "Palatino Linotype", serif;
+            color: #000;
+        }
+        header {
+            position: fixed;
+            top: 0;
+            right: 1em;
+            left: 1em;
+            z-index: 1000;
+            text-align: center;
+        }
+        h1 {
+            margin: 0 auto;
+            font-size: 160%;
+        }
+        h2 {
+            margin: 0 auto;
+            font-size: 120%;
+            font-weight: bold;
+            text-align: center;
+        }
+        p {
+            margin: 0 auto;
+        }
+        table {
+            font-size: 90%;
+            margin: 0 auto;
+            text-align: center;
+            width: 90%;
+        }
+        #headerContainer {
+            position: fixed;
+            height: 1em;
+            top: 0;
+            right: 0;
+            left: 0;
+            margin: 0;
+            background-color: #fafafa;
+            z-index: 999;
+        }
+        #mainContainer {
+            margin: 0 1em;
+            padding: 8em 0;
+        }
+        .chart {
+            width: 100%;
+            height: 460px;
+            margin: 0.5em 0;
+        }
+        .drop-shadow {
+            margin: 1em;
+            padding: 1em;
+            background-color: #fafafa;
+            border: 1px solid: #fafafa;
+            box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3), 0 0 40px rgba(128, 128, 128, 0.1) inset;
+        }
+        .table-header {
+            background-color: #ededed;
+            font-weight: bold;
+            padding: 0.2em 0;
+        }
+        .table-spacer {
+            width: 15%;
+        }
+    </style>
+
+    <script type="text/javascript" src="js/jquery_v1-11-2.js"></script>
+    <script type="text/javascript" src="js/highcharts.js"></script>
+    <script type="text/javascript" src="js/highcharts-more.js"></script>
+</head>
+
+<body>
+    <div id="headerContainer">
+        <header class="drop-shadow">
+            <h1>FReSH Validation</h1>
+            <h2>Toronto International Airport (YYZ)</h2>
+            <p class="datestamp"></p>
+        </header>
+    </div>
+    <div id="mainContainer">
+        <article class="drop-shadow">
+            <h2>Air Temperature (&deg;C)</h2>
+            <div id="chartAirTemp" class="chart"></div>
+        </article>
+        <article class="drop-shadow">
+            <h2>Relative Humidity (%)</h2>
+            <div id="chartRelHum" class="chart"></div>
+        </article>
+        <article class="drop-shadow">
+            <h2>Wind Speed (km/h)</h2>
+            <div id="chartWindSpd" class="chart"></div>
+        </article>
+        <article class="drop-shadow">
+            <h2>Wind Frequency (%)</h2>
+            <div id="chartWindFreq" class="chart"></div>
+        </article>
+        <article class="drop-shadow">
+            <h2>Station Pressure (kPa)</h2>
+            <div id="chartPress" class="chart"></div>
+        </article>
+        <article class="drop-shadow">
+            <h2>Total Precipitation (mm)</h2>
+            <div id="chartPrecip" class="chart"></div>
+        </article>
+        <article class="drop-shadow">
+            <h2>Precipitation Type</h2>
+            <br>
+            <table id="tablePrecip">
+            </table>
+        </article>
+    </div>
+</body>
+<script type="text/javascript">
+    $(document).ready(function() {
+         $.getJSON('Toronto_Pearson.json', function(data) {
+            // Update datestamp
+            $(".datestamp").text('Date: ' + data[0]);
+
+            // Draw line charts
+            var line_options = {
+                  credits: {enabled: false},
+                  chart: {
+                        type: 'line',
+                        style: {fontFamily: 'Palatino, "Palatino LT STD", "Palatino Linotype", serif'},
+                        backgroundColor: null
+                  },
+                  colors: ['#a359ff', '#d11141', '#00b159', '#f37735', '#00aedb', '#ffc425'],
+                  title: {text: null},
+                  legend: {align: 'right', verticalAlign: 'top', floating: true},
+                  tooltip: {headerFormat: '', shared: true},
+                  plotOptions: {series: {animation: false}},
+                  yAxis: {
+                        title: {text: null},
+                        lineWidth: 1,
+                        tickWidth: 1,
+                        minorTickWidth: 1,
+                        minorTickLength: 5,
+                        minorTickColor: '#E0E0E0'
+                  },
+                  xAxis: {
+                        max: 23,
+                        minPadding: 0,
+                        maxPadding: 0,
+                        tickInterval: 2,
+                        showLastLabel: true
+                  }
+            };
+            var line_charts = ['chartAirTemp','chartRelHum','chartWindSpd', 'chartPress'];
+            var units = ['\u00b0C', '%', ' km/h', ' kPa'];
+
+            for (var i = 0; i < line_charts.length; i++) {
+                line_options.xAxis.labels = {format: '{value}:00'};
+                line_options.yAxis.labels = {format: '{value}' + units[i]};
+                line_options.tooltip.valueSuffix = units[i];
+
+                var obs = {name: 'Observations', data: data[1][i][1]};
+                var forecast = {name: 'Forecast', data: data[1][i][2]};
+                line_options.series = [];
+                line_options.series.push(obs);
+                line_options.series.push(forecast);
+
+                line_options.chart.renderTo = line_charts[i];
+                var line_chart = new Highcharts.Chart(line_options);
+            }
+
+            // Draw wind rose
+            var wr_options = {
+                  credits: {enabled: false},
+                  chart: {
+                        type: 'column',
+                        polar: true,
+                        style: {fontFamily: 'Palatino, "Palatino LT STD", "Palatino Linotype", serif'},
+                        backgroundColor: null
+                  },
+                  colors: ['#a359ff', '#d11141', '#00b159', '#f37735', '#00aedb', '#ffc425'],
+                  title: null,
+                  legend: {align: 'right', verticalAlign: 'top', floating: true},
+                  tooltip: {valueSuffix: '%'},
+                  plotOptions: {
+                        series: {animation: false, pointPlacement: 'on', stacking: null},
+                        column: {pointPadding: 0, groupPadding: 0}
+                  },
+                  yAxis: {
+                        title: {text: null},
+                        labels: {
+                            align: 'center',
+                            format: '{value}%',
+                            style: {fontWeight: 'bold', color: '#000', textShadow:'0.1em 0.1em #fafafa'},
+                            zIndex: 7
+                        },
+                        lineWidth: 1,
+                        tickWidth: 1,
+                        tickInterval: 10,
+                        maxPadding: 0,
+                        showFirstLabel: false
+                  },
+                  xAxis: {
+                        categories: ['North', 'NNE', 'NE', 'ENE', 'East', 'ESE', 'SE', 'SSE',
+                                     'South', 'SSW', 'SW', 'WSW', 'West', 'WNW', 'NW', 'NNW'],
+                        labels: {style: {color: '#000'}}
+                  }
+            };
+            wr_options.series = [{name: 'Observations', data: data[1][4][1]}, {name: 'Forecast', data: data[1][4][2]}];
+            wr_options.chart.renderTo = 'chartWindFreq';
+            var wr_chart = new Highcharts.Chart(wr_options);
+
+            // Write precipitation type table
+            var table_html = '<tr><td class="table-header">Hour</td>' +
+                             '<td class="table-header">Observations</td>' +
+                             '<td class="table-header">Forecast</td>' +
+                             '<td class="table-spacer"></td>' +
+                             '<td class="table-header">Hour</td>' +
+                             '<td class="table-header">Observations</td>' +
+                             '<td class="table-header">Forecast</td></tr>\n';
+            for (var i = 0; i <= 11; i++) {
+                table_html += '<tr><td>' + i + ':00</td>' +
+                              '<td>' + data[1][7][1][i] + '</td>' +
+                              '<td>' + data[1][7][2][i] + '</td>' +
+                              '<td></td>' +
+                              '<td>' + (i + 12) + ':00</td>' +
+                              '<td>' + data[1][7][1][i+12] + '</td>' +
+                              '<td>' + data[1][7][2][i+12] + '</td></tr>\n';
+            }
+            $('#tablePrecip').html(table_html);
+
+            // Draw total precip bar chart
+            var totalp_options = {
+                  credits: {enabled: false},
+                  chart: {
+                        type: 'column',
+                        style: {fontFamily: 'Palatino, "Palatino LT STD", "Palatino Linotype", serif'},
+                        backgroundColor: null
+                  },
+                  colors: ['#a359ff', '#d11141', '#00b159', '#f37735', '#00aedb', '#ffc425'],
+                  title: null,
+                  legend: {align: 'right', verticalAlign: 'top', floating: true},
+                  tooltip: {headerFormat: '', valueSuffix: 'mm'},
+                  yAxis: {
+                        title: {text: null},
+                        labels: {format: '{value} mm'},
+                        lineWidth: 1,
+                        tickWidth: 1,
+                        minorTickWidth: 1,
+                        minorTickLength: 5,
+                        minorTickColor: '#E0E0E0'
+                  },
+                  xAxis: {labels: {enabled: false}}
+            };
+            totalp_options.series = [{name: 'Observations', data: data[1][8][1]}, {name: 'Forecast', data: data[1][8][2]}];
+            totalp_options.chart.renderTo = 'chartPrecip';
+            var totalp_chart = new Highcharts.Chart(totalp_options);
+
+         });
+    });
+</script>
+</html>
