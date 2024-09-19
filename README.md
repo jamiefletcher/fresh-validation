@@ -1,7 +1,7 @@
 # fresh-validation
 This was a dashboard/website created to display and validate daily weather forecasts produced by SENES Consultants' in-house weather model known as FReSH.
 
-Python and Bash scripts were used to pull the previous days' weather data from Environment Canada, the corresponding forecast from the model, and format to JSON for display. The data were displayed on a dedicated website hosted on www.senes.ca, which was built using JQuery and the HighCharts graphing package.
+The applicaton ran on a dedicated linux host and was available on www.senes.ca. The frontend was written in HTML/JS using JQuery and HighCharts. The backend was written in Python and Bash, which pulled the previous days' weather data from Environment Canada and the corresponding forecast from the model. 
 
 ## Live Preview
 A live version of the dashboard can be found at [jamiefletcher.github.io/fresh-validation](https://jamiefletcher.github.io/fresh-validation/).
